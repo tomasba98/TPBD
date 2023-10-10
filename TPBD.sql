@@ -746,3 +746,24 @@ WHERE EJ.temporada_id = (SELECT temporada_id FROM Temporada WHERE temporada_desc
 GROUP BY J.jugador_nombre, J.jugador_apellido
 HAVING COUNT(DISTINCT EJ.equipo_id) > 1
 ORDER BY J.jugador_apellido, J.jugador_nombre;
+
+--1
+SELECT COUNT(e.equipo_nombre) AS cantidad_equipos
+FROM Partido p
+INNER JOIN Equipo e ON p.partido_local_equipo_id = e.equipo_id OR p.partido_visitante_equipo_id = e.equipo_id
+WHERE p.partido_fecha = '2022-12-01';
+
+--2
+SELECT 
+	COUNT(partido_id) AS Partidos_jugados_Marzo
+FROM Partido p
+WHERE MONTH(partido_fecha) = 3;
+
+--3
+SELECT	COUNT(DISTINCT ej.jugador_id) AS Total_Jugadores
+FROM Partido p
+INNER JOIN Equipo_Jugador ej ON (ej.equipo_id = p.partido_local_equipo_id OR ej.equipo_id = p.partido_visitante_equipo_id)
+WHERE YEAR(partido_fecha) = 2022 AND MONTH(partido_fecha) = 12;
+
+
+
