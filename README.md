@@ -1,4 +1,5 @@
 Resumen de lo realizado + consultas.
+
 Se realizo la carga de los datos (datos2023.csv) los cuales se cargaron en una tabla, luego se realizo la normalizacion de los mismos ya que muchos presentaban anomalias como datos repetidos o escritos con diferentes nomenclaturas.
 Una vez de tener los datos de manera correcta, se cargo cada uno en sus respectivas tablas con sus claves foraneas.
 
