@@ -1,7 +1,5 @@
 DROP DATABASE IF EXISTS TPBD;
 
-CREATE DATABASE TPBD;
-
 DELETE FROM Ciudad;
 DELETE FROM Conferencia;
 DELETE FROM Division;
@@ -13,6 +11,8 @@ DELETE FROM EstadisticaPartido;
 DELETE FROM Pais;
 DELETE FROM Partido;
 DELETE FROM Temporada;
+
+CREATE DATABASE TPBD;
 
 USE TPBD;
 
@@ -107,7 +107,6 @@ equipo_idCiudad int,
 equipoOP_idCiudad int
 )
 
-
 CREATE TABLE datos_staging (
     equipoOP_ciudad VARCHAR(MAX),
     equipoOP_codigo VARCHAR(MAX),
@@ -200,7 +199,7 @@ CREATE TABLE datos_staging (
 );
 
 BULK INSERT datos_staging
-FROM 'F:\FACULTAD\3er Año\Bases de Datos\datos2023.csv'
+FROM 'C:\Users\wasak\Desktop\tpbd\Base de Datos\TPBD\datos2023.csv'
 WITH (
     FIRSTROW = 2,
     FIELDTERMINATOR = ',', 
@@ -293,8 +292,6 @@ CREATE TABLE Equipo_Jugador (
     CONSTRAINT UQ_EquipoJugador UNIQUE (jugador_id, equipo_id, temporada_id)
 );
 
-
-
 UPDATE datos_staging
 SET 
     equipoOP_ciudad = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(equipoOP_ciudad,CHAR(32),'()'),')(',''),'()',CHAR(32)))),
@@ -356,6 +353,10 @@ WHERE
     equipoOP_ciudad = 'LA';
 
 UPDATE datos_staging
+SET stat_rebotes_defensivos_nombre = 'Rebotes defensivos'
+WHERE stat_rebotes_defensivos_id = 3
+
+UPDATE datos_staging
 SET 
     equipo_idCiudad = 22,
     equipo_ciudad = 'Los Angeles'
@@ -407,7 +408,7 @@ WHERE idPais = 0;
 UPDATE ds
 SET ds.idPais = MaxIdPais.MaxIdPais + RowNumber
 FROM datos_staging ds
-JOIN (
+INNER JOIN (
     SELECT pais, ROW_NUMBER() OVER (ORDER BY pais) AS RowNumber
     FROM (
         SELECT DISTINCT pais
@@ -415,28 +416,13 @@ JOIN (
         WHERE idPais = 0
     ) AS TempPais
 ) AS TempPaisWithRowNumber ON ds.pais = TempPaisWithRowNumber.pais
-CROSS JOIN (
+CROSS INNER JOIN (
     SELECT ISNULL(MAX(idPais), 0) AS MaxIdPais
     FROM datos_staging
     WHERE idPais > 0
 ) AS MaxIdPais;
 
 DROP TABLE #TempPais;
-
-UPDATE datos_staging
-SET idPais = 
-    CASE
-        WHEN pais = 'Angola' THEN 2
-        WHEN pais = 'Democratic Republic of Congo' THEN 5
-        WHEN pais = 'Georgia' THEN 6
-        WHEN pais = 'Guinea' THEN 14
-        WHEN pais = 'Israel' THEN 18
-        WHEN pais = 'Jamaica' THEN 24
-        WHEN pais = 'Polonia' THEN 29
-        WHEN pais = 'Portugal' THEN 38
-        WHEN pais = 'Saint Lucia' THEN 39
-        ELSE idPais
-    END;
 
 UPDATE datos_staging
 SET CAMISETA = 
@@ -450,14 +436,15 @@ WHERE CAMISETA IS NOT NULL;
 ALTER TABLE datos_staging
 ADD division_id INT,
     conference_id INT;
+GO
 
 UPDATE datos_staging
 SET division_id = 
 CASE
     WHEN equipo_division = 'Noroeste' THEN 1
     WHEN equipo_division = 'Sudoeste' THEN 2
-    WHEN equipo_division = 'Pacífico' THEN 3
-    WHEN equipo_division = 'Atlántico' THEN 4
+	WHEN equipo_division = 'PacÃ­fico' THEN 3
+    WHEN equipo_division = 'AtlÃ¡ntico' THEN 4
     WHEN equipo_division = 'Central' THEN 5
     WHEN equipo_division = 'Sudeste' THEN 6
     ELSE NULL
@@ -723,47 +710,178 @@ INSERT INTO EstadisticaPartido
 	stat_perdidas_valor
 	FROM datos_staging;
 
---Borrar Tabla de datos
-DROP TABLE datos_staging;
-
---10
-SELECT TOP(1) p.pais_nombre, COUNT(j.jugador_id) AS cantidad_jugadores
-FROM Jugador j
-JOIN Pais p ON j.jugador_pais_id = p.pais_id
-GROUP BY p.pais_nombre
-ORDER BY cantidad_jugadores DESC
-
---12
-SELECT COUNT(j.jugador_id) AS cantidad_jugadores
-FROM Jugador j
-WHERE YEAR(GETDATE()) - j.jugador_draft_year > 15;
-
---13
-SELECT DISTINCT J.jugador_nombre, J.jugador_apellido
-FROM Jugador J
-INNER JOIN Equipo_Jugador EJ ON J.jugador_id = EJ.jugador_id
-WHERE EJ.temporada_id = (SELECT temporada_id FROM Temporada WHERE temporada_descripcion = '2022-2023')
-GROUP BY J.jugador_nombre, J.jugador_apellido
-HAVING COUNT(DISTINCT EJ.equipo_id) > 1
-ORDER BY J.jugador_apellido, J.jugador_nombre;
+--ACTIVIDADES 
 
 --1
-SELECT COUNT(e.equipo_nombre) AS cantidad_equipos
+
+SELECT COUNT(DISTINCT e.equipo_nombre) AS cantidad_equipos
 FROM Partido p
 INNER JOIN Equipo e ON p.partido_local_equipo_id = e.equipo_id OR p.partido_visitante_equipo_id = e.equipo_id
 WHERE p.partido_fecha = '2022-12-01';
 
 --2
+
 SELECT 
 	COUNT(partido_id) AS Partidos_jugados_Marzo
 FROM Partido p
 WHERE MONTH(partido_fecha) = 3;
 
 --3
-SELECT	COUNT(DISTINCT ej.jugador_id) AS Total_Jugadores
-FROM Partido p
-INNER JOIN Equipo_Jugador ej ON (ej.equipo_id = p.partido_local_equipo_id OR ej.equipo_id = p.partido_visitante_equipo_id)
-WHERE YEAR(partido_fecha) = 2022 AND MONTH(partido_fecha) = 12;
 
+SELECT COUNT(DISTINCT EP.estadistica_partido_jugador_id) AS CANTIDAD_JUGADORES_DICIEMBRE FROM
+EstadisticaPartido EP INNER JOIN Partido P 
+ON P.partido_id = EP.estadistica_partido_partido_id where year(P.partido_fecha) = 2022 and month(P.partido_fecha) = 12
 
+--4
 
+SELECT partido_fecha AS 'FECHA',
+EL.equipo_nombre AS 'EQUIPO LOCAL',
+P.partido_puntos_local AS 'PUNTOS LOCAL',
+EV.equipo_nombre AS 'EQUIPO VISITANTE',
+P.partido_puntos_visitante AS 'PUNTOS VISITANTE'
+FROM Partido P
+INNER JOIN Equipo EL
+ON EL.equipo_id = p.partido_local_equipo_id
+INNER JOIN Equipo EV
+ON EV.equipo_id = p.partido_visitante_equipo_id
+WHERE MONTH(P.partido_fecha) = 12
+
+--5
+
+SELECT COUNT(DISTINCT partido_id) AS CANT_PART_PERDIDOS FROM Partido P 
+INNER JOIN Equipo E
+ON E.equipo_id = P.partido_local_equipo_id OR E.equipo_id = P.partido_visitante_equipo_id 
+WHERE E.equipo_nombre = 'Bucks' AND P.partido_ganador_equipo_id <> E.equipo_id
+
+--6
+
+SELECT TOP 1 J.jugador_nombre, J.jugador_apellido, EJ.numero_camiseta, E.equipo_nombre,
+  ROUND(AVG(CAST(EP.estadistica_partido_valor AS FLOAT)), 2) AS 'PROMEDIO'
+FROM Jugador J
+INNER JOIN Equipo_Jugador EJ ON J.jugador_id = EJ.jugador_id
+INNER JOIN Equipo E ON EJ.equipo_id = E.equipo_id
+INNER JOIN EstadisticaPartido EP ON J.jugador_id = EP.estadistica_partido_jugador_id
+INNER JOIN Estadistica ES ON EP.estadistica_partido_estadistica_id = ES.estadistica_id
+WHERE ES.estadistica_descripcion = 'Robos'
+GROUP BY J.jugador_id, J.jugador_nombre, J.jugador_apellido, EJ.numero_camiseta, E.equipo_nombre
+ORDER BY AVG(CAST(EP.estadistica_partido_valor AS DECIMAL(5,2))) DESC;
+
+--7
+
+SELECT TOP 5 E.equipo_nombre, 
+       SUM(PL.partido_puntos_local + PV.partido_puntos_visitante)
+       / (COUNT(PL.partido_local_equipo_id) + COUNT(PV.partido_visitante_equipo_id)) AS PromedioPuntosPorPartido
+FROM Equipo E
+LEFT JOIN Partido AS PL ON E.equipo_id = PL.partido_local_equipo_id
+LEFT JOIN Partido AS PV ON E.equipo_id = PV.partido_visitante_equipo_id
+GROUP BY E.equipo_nombre
+ORDER BY PromedioPuntosPorPartido DESC;
+
+--8
+
+SELECT COUNT(*) AS CantidadPartidosPerdidos
+FROM Partido P
+INNER JOIN Equipo E ON P.partido_local_equipo_id = E.equipo_id OR P.partido_visitante_equipo_id = E.equipo_id
+INNER JOIN Ciudad C ON E.equipo_ciudad_id = C.ciudad_id
+WHERE C.ciudad_nombre = 'Boston'
+  AND ((P.partido_local_equipo_id = E.equipo_id AND P.partido_puntos_local > 100)
+    OR (P.partido_visitante_equipo_id = E.equipo_id AND P.partido_puntos_visitante > 100))
+  AND P.partido_ganador_equipo_id != E.equipo_id;
+
+--9
+
+SELECT D.division_nombre, 
+    AVG(P.partido_puntos_local + P.partido_puntos_visitante) AS 'Promedio puntos por partido'
+FROM Division D
+INNER JOIN Equipo E 
+ON D.division_id = E.equipo_division_id
+LEFT JOIN Partido P 
+ON (E.equipo_id = P.partido_local_equipo_id OR E.equipo_id = P.partido_visitante_equipo_id)
+GROUP BY D.division_nombre
+
+--10
+
+SELECT TOP(1) p.pais_nombre, COUNT(j.jugador_id) AS cantidad_jugadores
+FROM Jugador j
+INNER JOIN Pais p ON j.jugador_pais_id = p.pais_id
+GROUP BY p.pais_nombre
+ORDER BY cantidad_jugadores DESC
+
+--11
+
+SELECT
+    J.jugador_nombre AS Nombre,
+    J.jugador_apellido AS Apellido,
+    SUM(CASE WHEN ES.estadistica_descripcion IN ('Rebotes ofensivos', 'Rebotes defensivos') THEN EP.estadistica_partido_valor ELSE 0 END) AS Rebotes,
+    SUM(CASE WHEN ES.estadistica_descripcion = 'Asistencias' THEN EP.estadistica_partido_valor ELSE 0 END) AS Asistencias,
+    SUM(CASE WHEN ES.estadistica_descripcion = 'Puntos' THEN EP.estadistica_partido_valor ELSE 0 END) AS Puntos
+FROM Partido P
+INNER JOIN Equipo_Jugador EJ ON EJ.equipo_id = P.partido_local_equipo_id OR EJ.equipo_id = P.partido_visitante_equipo_id
+INNER JOIN Equipo E ON E.equipo_id = EJ.equipo_id
+INNER JOIN Jugador J ON J.jugador_id = EJ.jugador_id
+INNER JOIN Division D ON D.division_id = E.equipo_division_id
+INNER JOIN Equipo ER ON ER.equipo_id = P.partido_local_equipo_id OR ER.equipo_id = P.partido_visitante_equipo_id
+INNER JOIN Division DR ON DR.division_id = ER.equipo_division_id
+INNER JOIN EstadisticaPartido EP ON EP.estadistica_partido_partido_id = P.partido_id AND EP.estadistica_partido_jugador_id = J.jugador_id
+INNER JOIN Estadistica ES ON ES.estadistica_id = EP.estadistica_partido_estadistica_id
+WHERE (J.jugador_nombre = 'Kawhi' AND J.jugador_apellido = 'Leonard') 
+    AND (D.division_conferencia_id <> DR.division_conferencia_id)
+    AND (ES.estadistica_descripcion IN ('Rebotes ofensivos', 'Rebotes defensivos', 'Asistencias', 'Puntos'))
+GROUP BY J.jugador_nombre, J.jugador_apellido;
+
+--12
+
+SELECT COUNT(j.jugador_id) AS cantidad_jugadores
+FROM Jugador j
+WHERE YEAR(GETDATE()) - j.jugador_draft_year > 15;
+
+--13
+
+SELECT J.jugador_nombre AS Nombre, 
+	J.jugador_apellido AS Apellido, 
+	E.equipo_nombre AS Equipo, 
+	EJ.numero_camiseta NroCamiseta
+FROM Equipo_Jugador EJ
+INNER JOIN Jugador J ON J.jugador_id = EJ.jugador_id
+INNER JOIN Equipo E ON E.equipo_id = EJ.equipo_id
+INNER JOIN Equipo_Jugador EJ2 ON EJ.jugador_id = EJ2.jugador_id
+GROUP BY J.jugador_nombre, J.jugador_apellido, E.equipo_nombre, EJ.numero_camiseta
+HAVING COUNT(DISTINCT EJ2.equipo_id) > 1;
+
+--14
+
+SELECT 
+	COUNT(DISTINCT P.partido_id) AS Cantidad
+FROM Partido P
+INNER JOIN Equipo EQ
+ON EQ.equipo_id = P.partido_local_equipo_id 
+OR EQ.equipo_id = P.partido_visitante_equipo_id
+INNER JOIN EstadisticaPartido EP
+ON EP.estadistica_partido_partido_id = P.partido_id
+INNER JOIN Estadistica E
+ON E.estadistica_id = EP.estadistica_partido_estadistica_id
+WHERE EQ.equipo_nombre = 'Celtics' 
+AND EP.estadistica_partido_valor > 25 
+AND E.estadistica_descripcion = 'Puntos'
+
+--15
+
+SELECT TOP 1
+	   P.partido_id AS 'CODIGO',
+       P.partido_fecha AS 'FECHA',
+       PL.equipo_sigla AS 'SIGLAS LOCAL',
+       PV.equipo_sigla AS 'SIGLAS VISITANTE',
+       P.partido_puntos_local AS 'PUNTOS LOCAL',
+       P.partido_puntos_visitante AS 'PUNTOS VISITANTE',
+	   ABS(P.partido_puntos_local - P.partido_puntos_visitante) AS 'DIFERENCIA'
+FROM Partido P
+INNER JOIN Equipo PL
+ON PL.equipo_id = P.partido_local_equipo_id
+INNER JOIN Equipo PV
+ON PV.equipo_id = P.partido_visitante_equipo_id
+INNER JOIN Equipo_Jugador EJ
+ON PL.equipo_id = EJ.equipo_id OR PV.equipo_id = EJ.equipo_id
+INNER JOIN Jugador J 
+ON EJ.jugador_id = J.jugador_id
+WHERE J.jugador_nombre = 'Kawhi' AND J.jugador_apellido = 'Leonard'
+ORDER BY (ABS(P.partido_puntos_visitante - P.partido_puntos_local )) DESC
